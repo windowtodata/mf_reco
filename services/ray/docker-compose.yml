@@ -1,0 +1,97 @@
+# Ray Cluster for Testing RayDP with Ray Jobs
+# Corrected network configuration
+
+services:
+  # Ray Head Node (GPU)
+  ray-head:
+    image: ray:2.51.0-py312-gpu-custom
+    container_name: ray-head
+    hostname: ray-head
+    shm_size: 3gb
+    command: >
+      ray start --head
+      --dashboard-host=0.0.0.0
+      --dashboard-port=8265
+      --port=6379
+      --block
+    ports:
+      - "8265:8265"
+      - "6379:6379"
+      - "10001:10001"
+      - "3090:3090"
+      - "20000-20100:20000-20100"  # Spark port range
+    environment:
+      - PYTHONPATH=/workspace/src/main/resources:/workspace/src/main/python
+      - RAY_DISABLE_DOCKER_CPU_WARNING=1
+      - RAY_USE_MULTIPROCESSING_CPU_COUNT=1
+      - RAYDP_RPC_BIND_ADDRESS=0.0.0.0
+    volumes:
+      - /home/rajde/workspace/Practice/2026/mf_reco:/workspace
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+    networks:
+      - ray-network 
+
+  # Ray Worker 1
+  ray-worker-1:
+    image: ray:2.51.0-py312-gpu-custom
+    container_name: ray-worker-1
+    shm_size: 8gb
+    command: >
+      bash -c "sleep 10 && ray start --address=ray-head:6379 --block"
+    depends_on:
+      - ray-head
+    environment:
+      - PYTHONPATH=/workspace/src/main/resources:/workspace/src/main/python
+      - RAY_DISABLE_DOCKER_CPU_WARNING=1
+      - RAY_USE_MULTIPROCESSING_CPU_COUNT=1
+      - RAYDP_RPC_BIND_ADDRESS=0.0.0.0
+    volumes:
+      - /home/rajde/workspace/Practice/2026/mf_reco:/workspace
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          cpus: '8'
+          memory: 8G
+    networks:
+      - ray-network
+
+  # Ray Worker 2
+  ray-worker-2:
+    image: ray:2.51.0-py312-gpu-custom
+    container_name: ray-worker-2
+    shm_size: 3gb
+    command: >
+      bash -c "sleep 10 && ray start --address=ray-head:6379 --block"
+    depends_on:
+      - ray-head
+    environment:
+      - PYTHONPATH=/workspace/src/main/resources:/workspace/src/main/python
+      - RAY_DISABLE_DOCKER_CPU_WARNING=1
+      - RAY_USE_MULTIPROCESSING_CPU_COUNT=1
+      - RAYDP_RPC_BIND_ADDRESS=0.0.0.0
+    volumes:
+      - /home/rajde/workspace/Practice/2026/mf_reco:/workspace
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3G
+    networks:
+      - ray-network
+
+networks:
+  ray-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/16

@@ -1,0 +1,8 @@
+data
+model_checkpoints
+model_data
+model_metrics
+model_train
+models
+mlflow.db
+*Zone.Identifier

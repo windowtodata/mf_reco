@@ -1,0 +1,36 @@
+# Dockerfile.ray - Custom Ray image with RayDP and PySpark
+FROM rayproject/ray:2.51.0-py312-gpu
+
+USER root
+
+# Install system dependencies (must be root)
+RUN apt-get update && apt-get install -y \
+    openjdk-11-jdk \
+    curl \
+    iproute2 \
+    net-tools \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Java home
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+ENV PATH=$PATH:$JAVA_HOME/bin
+
+# Set up workspace and tmp with correct ownership BEFORE switching user
+RUN mkdir -p /workspace /tmp/ray && \
+    chown -R ray:users /workspace /tmp/ray && \
+    chmod -R 777 /tmp/ray
+
+WORKDIR /workspace
+
+# Switch to ray user for Python installations
+USER ray
+
+# Install Python dependencies as 'ray' user
+# Added --user to ensure they are in the ray user's path
+COPY requirements.txt .
+RUN pip install --no-cache-dir --timeout=900 \
+    -r requirements.txt --user
+
+# Ensure the local bin is in PATH for the ray user
+ENV PATH="/home/ray/.local/bin:${PATH}"

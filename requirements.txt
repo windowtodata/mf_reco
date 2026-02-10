@@ -1,0 +1,31 @@
+# Matrix Factorization Recommender Dependencies
+# Python 3.12 compatible
+
+# Core ML frameworks
+torch>=2.0.0
+ray[train,data]==2.51.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0
+
+# Distributed Spark (RayDP)
+raydp==1.7.0b20250423.dev0
+pyspark>=3.4.0,<3.5.0
+
+# Monitoring (optional)
+mlflow>=2.9.0
+influxdb-client>=1.38.0
+
+# Database drivers (for MLflow)
+psycopg2-binary>=2.9.0
+boto3>=1.28.0
+
+# Utilities
+configparser
+protobuf>=3.19.4
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
