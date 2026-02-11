@@ -196,6 +196,8 @@ num_cpus = 8            # CPU cores for Ray
 enabled = false         # Enable MLflow tracking
 tracking_uri = http://localhost:5000
 
+![alt text](image-1.png)
+
 [influxdb]
 enabled = false         # Enable InfluxDB monitoring
 ```
