@@ -6,3 +6,4 @@ model_train
 models
 mlflow.db
 *Zone.Identifier
+__pycache__/

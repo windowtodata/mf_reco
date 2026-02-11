@@ -159,7 +159,22 @@ Where `IDCG@K` is the ideal DCG (perfect ranking).
 | RMSE | Root Mean Square Error of rating predictions |
 | Precision@K | Fraction of top-K items that are relevant |
 | Recall@K | Fraction of relevant items in top-K |
-| Hit Rate@K | Whether at least one relevant item is in top-K |
+
+The equivalent PySprak ALS model was created to dig deeper into the source of RMSE
+As item_quantity was used as a proxy for rating, RMSEs went up with higher ground truth
+item quanties:
+![alt text](image.png)
+Since RMSE squares the difference, high-quantity items usually have higher variance. It is much harder for a Matrix Factorization model to distinguish between a user buying 20 vs. 25 items than it is to distinguish between 0 and 1.
+
+Sample model performance metrics for ~2000 random users:
+```json
+{'rmse': 1.3787560314472806,
+ 'ndcg@10': 0.0018945381073924743,
+ 'precision@10': 0.0011,
+ 'recall@10': 0.0032975514953456127,
+ 'num_users_evaluated': 2000,
+ 'k': 10}
+```
 
 ## Configuration
 
@@ -242,6 +257,24 @@ Run unit tests:
 ```bash
 cd src/main/python
 pytest test_recommender.py -v
+```
+```
+test_recommender.py::TestMatrixFactorization::test_model_initialization PASSED                                                  [  6%]
+test_recommender.py::TestMatrixFactorization::test_forward_pass PASSED                                                          [ 12%]
+test_recommender.py::TestMatrixFactorization::test_predict_all_items PASSED                                                     [ 18%]
+test_recommender.py::TestMatrixFactorization::test_gradient_flow PASSED                                                         [ 25%]
+test_recommender.py::TestEvaluationMetrics::test_dcg_calculation PASSED                                                         [ 31%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_perfect_ranking PASSED                                                    [ 37%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_worst_ranking PASSED                                                      [ 43%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_no_hits PASSED                                                            [ 50%]
+test_recommender.py::TestEvaluationMetrics::test_recall_at_k PASSED                                                             [ 56%]
+test_recommender.py::TestLSHIndex::test_lsh_build_and_query PASSED                                                              [ 62%]
+test_recommender.py::TestLSHIndex::test_lsh_save_load PASSED                                                                    [ 68%]
+test_recommender.py::TestLSHIndex::test_lsh_excludes_items PASSED                                                               [ 75%]
+test_recommender.py::TestPopularityRecommender::test_popularity_ranking PASSED                                                  [ 81%]
+test_recommender.py::TestPopularityRecommender::test_popularity_excludes_items PASSED                                           [ 87%]
+test_recommender.py::TestIDMappings::test_mapping_consistency PASSED                                                            [ 93%]
+test_recommender.py::TestConfiguration::test_config_defaults PASSED                                                             [100%]
 ```
 
 ## Troubleshooting

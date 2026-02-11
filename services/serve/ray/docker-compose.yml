@@ -1,0 +1,28 @@
+
+services:
+  ray-serve:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ray-serve-recommender
+    container_name: ray-serve-recommender
+    ports:
+      - "8000:8000" # Ray Serve HTTP endpoint
+      - "8265:8265" # Ray Dashboard
+    volumes:
+      # Mount source code to allow the container to find serve_recommender.py
+      - ../../../src/main/python:/workspace/src/main/python
+      # Mount models directory so the recommender can load artifacts
+      - ../../../models:/workspace/models
+    environment:
+      - MODEL_DIR=/workspace/models/latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Ray often requires shared memory for object store
+    shm_size: 4g
+    restart: unless-stopped

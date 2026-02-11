@@ -224,19 +224,6 @@ class TestEvaluationMetrics:
         
         # 2 hits out of 3 relevant items
         assert recall == pytest.approx(2/3, abs=1e-6)
-    
-    def test_hit_rate(self):
-        """Test hit rate calculation."""
-        from eval_model import calculate_hit_rate
-        
-        # With hit
-        recommended = ['item_a', 'item_x', 'item_y']
-        relevant = {'item_a', 'item_b', 'item_c'}
-        assert calculate_hit_rate(recommended, relevant, k=3) == 1.0
-        
-        # Without hit
-        recommended = ['item_x', 'item_y', 'item_z']
-        assert calculate_hit_rate(recommended, relevant, k=3) == 0.0
 
 
 # ============================================================================
