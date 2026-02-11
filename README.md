@@ -228,12 +228,19 @@ python recommend.py --benchmark
 
 ### Scaling to 1M+ Orders
 
+Training:
 The solution handles large datasets through:
 
 1. **RayDP (PySpark on Ray)**: Distributed data processing
 2. **Partitioned Parquet**: Efficient columnar storage with date partitioning
 3. **Ray Train**: Distributed model training with GPU support
 4. **LSH Indexing**: O(1) approximate nearest neighbor lookup
+Inference:
+On my WSL, on a Ray cluster, it takes ~7.3 seconds for serving one million requests through the model.
+```
+External caching is not implemented
+But the LSH tables are in-memory for fast lookups
+```
 
 ## Monitoring
 
