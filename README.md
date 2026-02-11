@@ -237,7 +237,7 @@ The solution handles large datasets through:
 4. **LSH Indexing**: O(1) approximate nearest neighbor lookup
 Inference:
 On my WSL, on a Ray cluster, it takes ~7.3 seconds for serving one million requests
-Please note, there are seperate Ray clusters for training and serving.
+Please note, there are separate Ray clusters for training and serving.
 ```
 External caching is not implemented
 But the LSH tables are in-memory for fast lookups
