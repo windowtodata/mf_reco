@@ -141,26 +141,6 @@ def calculate_recall_at_k(
     return hits / len(relevant_items)
 
 
-def calculate_hit_rate(
-    recommended_items: List[str],
-    relevant_items: set,
-    k: int = 10
-) -> float:
-    """
-    Calculate Hit Rate@K (at least one hit in top-K).
-    
-    Args:
-        recommended_items: Ordered list of recommended item IDs
-        relevant_items: Set of relevant item IDs
-        k: Cutoff position
-        
-    Returns:
-        1.0 if at least one hit, 0.0 otherwise
-    """
-    recommended_at_k = set(recommended_items[:k])
-    return 1.0 if recommended_at_k & relevant_items else 0.0
-
-
 # ============================================================================
 # Model Evaluator
 # ============================================================================
@@ -242,6 +222,46 @@ class ModelEvaluator:
         self.model.to(self.device)
         self.model.eval()
     
+    def calculate_rmse(
+        self,
+        df: pd.DataFrame,
+        user_col: str,
+        item_col: str,
+        rating_col: str,
+        batch_size: int = 4096
+    ) -> float:
+        """
+        Calculate RMSE for the provided data.
+        """
+        # Filter known users/items
+        valid_mask = (df[user_col].isin(self.user2idx)) & (df[item_col].isin(self.item2idx))
+        valid_df = df[valid_mask]
+        
+        if len(valid_df) == 0:
+            logger.warning("No valid user-item pairs found for RMSE calculation")
+            return 0.0
+            
+        # Map to indices
+        user_indices = torch.tensor([self.user2idx[u] for u in valid_df[user_col]], dtype=torch.long)
+        item_indices = torch.tensor([self.item2idx[i] for i in valid_df[item_col]], dtype=torch.long)
+        ratings = torch.tensor(valid_df[rating_col].values, dtype=torch.float32)
+        
+        self.model.eval()
+        total_sq_error = 0.0
+        count = 0
+        
+        with torch.no_grad():
+            for i in range(0, len(user_indices), batch_size):
+                u_batch = user_indices[i:i+batch_size].to(self.device)
+                i_batch = item_indices[i:i+batch_size].to(self.device)
+                r_batch = ratings[i:i+batch_size].to(self.device)
+                
+                preds = self.model(u_batch, i_batch)
+                total_sq_error += torch.sum((preds - r_batch) ** 2).item()
+                count += len(r_batch)
+                
+        return np.sqrt(total_sq_error / count) if count > 0 else 0.0
+
     def get_user_recommendations(
         self,
         user_id: str,
@@ -327,6 +347,11 @@ class ModelEvaluator:
         
         logger.info(f"User-item pairs: {len(user_item_ratings):,}")
         
+        # Calculate RMSE on test data
+        logger.info("Calculating RMSE on test data...")
+        rmse = self.calculate_rmse(user_item_ratings, user_col, item_col, rating_col)
+        logger.info(f"Test RMSE: {rmse:.4f}")
+        
         # Get unique users
         unique_users = user_item_ratings[user_col].unique()
         
@@ -340,7 +365,6 @@ class ModelEvaluator:
         ndcg_scores = []
         precision_scores = []
         recall_scores = []
-        hit_rates = []
         
         evaluated_users = 0
         
@@ -365,22 +389,19 @@ class ModelEvaluator:
             ndcg = calculate_ndcg(recommended_items, ground_truth, self.k)
             precision = calculate_precision_at_k(recommended_items, relevant_items, self.k)
             recall = calculate_recall_at_k(recommended_items, relevant_items, self.k)
-            hit_rate = calculate_hit_rate(recommended_items, relevant_items, self.k)
             
             ndcg_scores.append(ndcg)
             precision_scores.append(precision)
             recall_scores.append(recall)
-            hit_rates.append(hit_rate)
             
             evaluated_users += 1
         
         # Aggregate metrics
         metrics = {
+            'rmse': rmse,
             f'ndcg@{self.k}': float(np.mean(ndcg_scores)) if ndcg_scores else 0.0,
-            f'ndcg@{self.k}_std': float(np.std(ndcg_scores)) if ndcg_scores else 0.0,
             f'precision@{self.k}': float(np.mean(precision_scores)) if precision_scores else 0.0,
             f'recall@{self.k}': float(np.mean(recall_scores)) if recall_scores else 0.0,
-            f'hit_rate@{self.k}': float(np.mean(hit_rates)) if hit_rates else 0.0,
             'num_users_evaluated': evaluated_users,
             'k': self.k
         }
@@ -388,11 +409,11 @@ class ModelEvaluator:
         logger.info("="*80)
         logger.info("EVALUATION RESULTS")
         logger.info("="*80)
+        logger.info(f"RMSE: {metrics['rmse']:.4f}")
         logger.info(f"Users evaluated: {evaluated_users:,}")
-        logger.info(f"NDCG@{self.k}: {metrics[f'ndcg@{self.k}']:.4f} ± {metrics[f'ndcg@{self.k}_std']:.4f}")
+        logger.info(f"NDCG@{self.k}: {metrics[f'ndcg@{self.k}']:.4f}")
         logger.info(f"Precision@{self.k}: {metrics[f'precision@{self.k}']:.4f}")
         logger.info(f"Recall@{self.k}: {metrics[f'recall@{self.k}']:.4f}")
-        logger.info(f"Hit Rate@{self.k}: {metrics[f'hit_rate@{self.k}']:.4f}")
         
         return metrics
     
@@ -444,7 +465,6 @@ def save_evaluation_metrics(
         'ndcg': [metrics.get('ndcg@10', 0.0)],
         'precision': [metrics.get('precision@10', 0.0)],
         'recall': [metrics.get('recall@10', 0.0)],
-        'hit_rate': [metrics.get('hit_rate@10', 0.0)],
         'users_evaluated': [metrics.get('num_users_evaluated', 0)]
     }
     
@@ -512,14 +532,8 @@ def main():
         sample_users=args.sample_users
     )
     
-    # Load training RMSE
-    model_metrics_path = Path(model_dir) / "metrics.json"
-    if model_metrics_path.exists():
-        with open(model_metrics_path, 'r') as f:
-            train_metrics = json.load(f)
-        rmse = train_metrics.get('test_rmse', 0.0)
-    else:
-        rmse = 0.0
+    # Use computed RMSE
+    rmse = metrics.get('rmse', 0.0)
     
     # Save metrics
     save_evaluation_metrics(

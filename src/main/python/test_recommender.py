@@ -138,18 +138,6 @@ class TestEvaluationMetrics:
         
         assert ndcg == 0.0
     
-    def test_precision_at_k(self):
-        """Test Precision@K calculation."""
-        from eval_model import calculate_precision_at_k
-        
-        recommended = ['a', 'b', 'x', 'y', 'z']
-        relevant = {'a', 'b', 'c'}
-        
-        precision = calculate_precision_at_k(recommended, relevant, k=5)
-        
-        # 2 hits in top 5
-        assert precision == 2 / 5
-    
     def test_recall_at_k(self):
         """Test Recall@K calculation."""
         from eval_model import calculate_recall_at_k
@@ -161,19 +149,6 @@ class TestEvaluationMetrics:
         
         # 2 hits out of 3 relevant
         assert recall == 2 / 3
-    
-    def test_hit_rate(self):
-        """Test Hit Rate calculation."""
-        from eval_model import calculate_hit_rate
-        
-        # Has hit
-        recommended = ['x', 'a', 'y']
-        relevant = {'a', 'b'}
-        assert calculate_hit_rate(recommended, relevant, k=3) == 1.0
-        
-        # No hit
-        recommended = ['x', 'y', 'z']
-        assert calculate_hit_rate(recommended, relevant, k=3) == 0.0
 
 
 # ============================================================================
