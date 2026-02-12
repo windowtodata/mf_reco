@@ -17,6 +17,9 @@ import os
 import sys
 import shutil
 import json
+import pickle
+import torch
+import mlflow
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Tuple, Optional
@@ -26,7 +29,7 @@ import argparse
 
 # Import pipeline components
 from data_pipeline import DataPipeline
-from train_model import ModelTrainer
+from train_model import ModelTrainer, MatrixFactorization
 from eval_model import ModelEvaluator, save_evaluation_metrics
 from monitoring import PipelineStage, create_influxdb_logger
 
@@ -327,6 +330,9 @@ class TrainingPipeline:
                     shutil.rmtree(latest_dir)
                 shutil.copytree(new_model_artifacts, latest_dir)
                 logger.info(f"   Copied to: {latest_dir}")
+                
+                if self.config.getboolean("mlflow", "enabled", fallback=False):
+                    self._log_best_model_to_mlflow(latest_dir)
             else:
                 logger.info("✗ Previous model is better, keeping it")
         else:
@@ -336,9 +342,76 @@ class TrainingPipeline:
                 shutil.rmtree(latest_dir)
             shutil.copytree(new_model_artifacts, latest_dir)
             logger.info(f"   Saved to: {latest_dir}")
+            
+            if self.config.getboolean("mlflow", "enabled", fallback=False):
+                self._log_best_model_to_mlflow(latest_dir)
         
         return str(latest_dir)
     
+    def _log_best_model_to_mlflow(self, model_dir: Path):
+        """Log the best model to MLflow with registration."""
+        try:
+            logger.info("Logging best model to MLflow...")
+            
+            # MLflow config
+            tracking_uri = self.config.get("mlflow", "tracking_uri")
+            experiment_name = self.config.get("mlflow", "experiment_name")
+            registered_name = self.config.get("training", "registered_model_name")
+            
+            mlflow.set_tracking_uri(tracking_uri)
+            mlflow.set_experiment(experiment_name)
+            
+            # Load metadata
+            with open(model_dir / "config.json", "r") as f:
+                model_config = json.load(f)
+            
+            with open(model_dir / "mappings.pkl", "rb") as f:
+                mappings = pickle.load(f)
+                
+            with open(model_dir / "metrics.json", "r") as f:
+                metrics = json.load(f)
+            
+            # Reconstruct model
+            model = MatrixFactorization(
+                n_users=mappings['n_users'],
+                n_items=mappings['n_items'],
+                n_factors=model_config['n_factors']
+            )
+            
+            # Load weights
+            checkpoint_path = model_dir / "model.pt"
+            # weights_only=False needed for numpy scalars in checkpoint
+            checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+            
+            if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                model.load_state_dict(checkpoint)
+            
+            # Start MLflow run
+            run_name = f"best_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            with mlflow.start_run(run_name=run_name) as run:
+                # Log params and metrics
+                mlflow.log_params(model_config)
+                mlflow.log_metrics(metrics)
+                
+                # Log artifacts
+                mlflow.log_artifact(str(model_dir / "mappings.pkl"), artifact_path="artifacts")
+                mlflow.log_artifact(str(model_dir / "config.json"), artifact_path="artifacts")
+                
+                # Log model and register
+                mlflow.pytorch.log_model(
+                    model,
+                    artifact_path="model",
+                    registered_model_name=registered_name
+                )
+                
+                logger.info(f"✓ Model logged to MLflow (Run ID: {run.info.run_id})")
+                logger.info(f"✓ Registered as: {registered_name}")
+                
+        except Exception as e:
+            logger.error(f"Failed to log to MLflow: {e}")
+
     def run(self):
         """
         Run the pipeline based on configured stage.
