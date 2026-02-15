@@ -471,8 +471,8 @@ def train_loop(config: Dict):
                 "epoch": epoch + 1,
                 "model_state_dict": model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
-                "train_rmse": train_rmse,
-                "test_rmse": test_rmse
+                "train_rmse": float(train_rmse),
+                "test_rmse": float(test_rmse)
             }
             
             # Save checkpoint to file

@@ -156,8 +156,7 @@ class DataPipeline:
             # Remove nulls in key columns
             df_filtered = df_filtered.filter(
                 F.col(self.user_col).isNotNull() &
-                F.col(self.item_col).isNotNull() &
-                F.col(self.rating_col).isNotNull()
+                F.col(self.item_col).isNotNull()
             )
             
             filtered_count = df_filtered.count()

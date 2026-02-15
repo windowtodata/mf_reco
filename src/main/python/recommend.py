@@ -242,9 +242,8 @@ class ComplementaryProductRecommender:
         
         checkpoint_path = self.model_dir / "model.pt"
         if checkpoint_path.exists():
-            # PyTorch 2.6+ defaults to weights_only=True, but our checkpoint
-            # contains numpy scalars, so we need weights_only=False
-            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
+            # Load with weights_only=True for security
+            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             logger.info("  ✓ Loaded model weights")
         
