@@ -31,9 +31,9 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 3G
+          memory: 5G
     networks:
-      - ray-network 
+      - ray-network
 
   # Ray Worker 1
   ray-worker-1:

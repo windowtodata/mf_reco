@@ -28,7 +28,7 @@ from ray import train as ray_train
 from ray.train import ScalingConfig, RunConfig, CheckpointConfig, Checkpoint
 from ray.train.torch import TorchTrainer
 import ray.data
-from monitoring import create_mlflow_logger
+from monitoring import MLflowLogger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -665,7 +665,7 @@ class ModelTrainer:
         
         mlflow_logger = None
         if self.app_config:
-            mlflow_logger = create_mlflow_logger(self.app_config)
+            mlflow_logger = MLflowLogger(self.app_config)
 
         logger.info("="*80)
         logger.info("EPOCH SUMMARY")

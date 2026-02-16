@@ -31,7 +31,7 @@ import argparse
 from data_pipeline import DataPipeline
 from train_model import ModelTrainer, MatrixFactorization
 from eval_model import ModelEvaluator, save_evaluation_metrics
-from monitoring import PipelineStage, create_influxdb_logger
+from monitoring import PipelineStage, InfluxDBLogger
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,7 +65,7 @@ class TrainingPipeline:
         self.run_stage = run_stage
         
         # Initialize monitoring client
-        self.monitoring = create_influxdb_logger(config)
+        self.monitoring = InfluxDBLogger(config)
         
         # Column names from config
         self.user_col = config.get('model', 'user_col', fallback='network_userid')
@@ -290,62 +290,50 @@ class TrainingPipeline:
             raise
     
     def select_best_model(
-        self, 
-        new_checkpoint_dir: str, 
+        self,
+        new_checkpoint_dir: str,
         new_rmse: float,
-        test_dir: str
     ) -> str:
         """
         Compare new model with previous best and save the better one.
-        
+
         Args:
             new_checkpoint_dir: Path to new model checkpoint
             new_rmse: Test RMSE of new model
-            test_dir: Path to test data (for potential re-evaluation)
-            
+
         Returns:
             Path to best model directory
         """
         logger.info("\n" + "="*80)
         logger.info("[STEP 4b] MODEL SELECTION")
         logger.info("="*80)
-        
-        latest_model_path = self.config.get("training", "latest_model_dir")
-        latest_dir = Path(latest_model_path)
-        
+
+        latest_dir = Path(self.config.get("training", "latest_model_dir"))
         new_model_artifacts = Path(new_checkpoint_dir) / "model_artifacts"
-        
-        # Check if previous model exists
+
+        # Determine if we should update
+        should_update = True
         if latest_dir.exists() and (latest_dir / "metrics.json").exists():
             with open(latest_dir / "metrics.json", 'r') as f:
-                prev_metrics = json.load(f)
-            prev_rmse = prev_metrics.get('test_rmse', float('inf'))
-            
+                prev_rmse = json.load(f).get('test_rmse', float('inf'))
             logger.info(f"Previous best RMSE: {prev_rmse:.4f}")
             logger.info(f"New model RMSE: {new_rmse:.4f}")
-            
-            if new_rmse < prev_rmse:
-                logger.info("✓ New model is better! Updating latest model")
-                if latest_dir.exists():
-                    shutil.rmtree(latest_dir)
-                shutil.copytree(new_model_artifacts, latest_dir)
-                logger.info(f"   Copied to: {latest_dir}")
-                
-                if self.config.getboolean("mlflow", "enabled", fallback=False):
-                    self._log_best_model_to_mlflow(latest_dir)
-            else:
-                logger.info("✗ Previous model is better, keeping it")
+            should_update = new_rmse < prev_rmse
+            if not should_update:
+                logger.info("Previous model is better, keeping it")
         else:
-            logger.info("✓ No previous model found, saving new model as best")
+            logger.info("No previous model found, saving new model as best")
+
+        if should_update:
+            logger.info("New model is better, updating latest model")
             latest_dir.parent.mkdir(parents=True, exist_ok=True)
             if latest_dir.exists():
                 shutil.rmtree(latest_dir)
             shutil.copytree(new_model_artifacts, latest_dir)
-            logger.info(f"   Saved to: {latest_dir}")
-            
+            logger.info(f"  Saved to: {latest_dir}")
             if self.config.getboolean("mlflow", "enabled", fallback=False):
                 self._log_best_model_to_mlflow(latest_dir)
-        
+
         return str(latest_dir)
     
     def _log_best_model_to_mlflow(self, model_dir: Path):
@@ -462,7 +450,6 @@ class TrainingPipeline:
                 best_model_dir = self.select_best_model(
                     new_checkpoint_dir=checkpoint_dir,
                     new_rmse=train_metrics.get('test_rmse', float('inf')),
-                    test_dir=test_dir
                 )
                 
                 # Summary

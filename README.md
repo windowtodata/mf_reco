@@ -34,16 +34,18 @@ Where:
 src/
 ├── main/
 │   ├── python/
-│   │   ├── ray_submit.py        # Job submission to Ray cluster
-│   │   ├── train_pipeline.py    # Main pipeline orchestrator
-│   │   ├── data_pipeline.py     # Data extraction with RayDP
-│   │   ├── train_model.py       # MF model and training logic
-│   │   ├── eval_model.py        # Evaluation metrics (NDCG, etc.)
-│   │   ├── recommend.py         # CLI for recommendations
-│   │   ├── monitoring.py        # MLflow/InfluxDB integration
-│   │   └── test_recommender.py  # Unit tests
+│   │   ├── ray_submit.py          # Job submission to Ray cluster
+│   │   ├── train_pipeline.py      # Main pipeline orchestrator
+│   │   ├── data_pipeline.py       # Data extraction with RayDP
+│   │   ├── train_model.py         # MF model and training logic
+│   │   ├── eval_model.py          # Evaluation metrics (NDCG, etc.)
+│   │   ├── recommend.py           # CLI for recommendations
+│   │   ├── monitoring.py          # MLflow/InfluxDB integration
+│   │   └── serve_recommender.py   # Ray Serve deployment
 │   └── resources/
-│       └── train_params.ini     # Configuration file
+│       └── train_params.ini       # Configuration file
+tests/
+└── test_recommender.py            # Unit and integration tests
 ```
 
 ## Setup Instructions
@@ -263,27 +265,29 @@ When enabled, sends:
 
 Run unit tests:
 ```bash
-cd src/main/python
-pytest test_recommender.py -v
+pytest tests/test_recommender.py -v
 ```
 ```
-test_recommender.py::TestMatrixFactorization::test_model_initialization PASSED                                                  [  6%]
-test_recommender.py::TestMatrixFactorization::test_forward_pass PASSED                                                          [ 12%]
-test_recommender.py::TestMatrixFactorization::test_predict_all_items PASSED                                                     [ 18%]
-test_recommender.py::TestMatrixFactorization::test_gradient_flow PASSED                                                         [ 25%]
-test_recommender.py::TestEvaluationMetrics::test_dcg_calculation PASSED                                                         [ 31%]
-test_recommender.py::TestEvaluationMetrics::test_ndcg_perfect_ranking PASSED                                                    [ 37%]
-test_recommender.py::TestEvaluationMetrics::test_ndcg_worst_ranking PASSED                                                      [ 43%]
-test_recommender.py::TestEvaluationMetrics::test_ndcg_no_hits PASSED                                                            [ 50%]
-test_recommender.py::TestEvaluationMetrics::test_recall_at_k PASSED                                                             [ 56%]
-test_recommender.py::TestLSHIndex::test_lsh_build_and_query PASSED                                                              [ 62%]
-test_recommender.py::TestLSHIndex::test_lsh_save_load PASSED                                                                    [ 68%]
-test_recommender.py::TestLSHIndex::test_lsh_excludes_items PASSED                                                               [ 75%]
-test_recommender.py::TestPopularityRecommender::test_popularity_ranking PASSED                                                  [ 81%]
-test_recommender.py::TestPopularityRecommender::test_popularity_excludes_items PASSED                                           [ 87%]
-test_recommender.py::TestIDMappings::test_mapping_consistency PASSED                                                            [ 93%]
-test_recommender.py::TestConfiguration::test_config_defaults PASSED                                                             [100%]
+test_recommender.py::TestMatrixFactorization::test_model_creation PASSED                                                                             [  5%]
+test_recommender.py::TestMatrixFactorization::test_model_forward PASSED                                                                              [ 11%]
+test_recommender.py::TestMatrixFactorization::test_model_predict_all_items PASSED                                                                    [ 16%]
+test_recommender.py::TestMatrixFactorization::test_model_embeddings PASSED                                                                           [ 22%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_perfect_ranking PASSED                                                                         [ 27%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_worst_ranking PASSED                                                                           [ 33%]
+test_recommender.py::TestEvaluationMetrics::test_ndcg_no_hits PASSED                                                                                 [ 38%]
+test_recommender.py::TestEvaluationMetrics::test_precision_at_k PASSED                                                                               [ 44%]
+test_recommender.py::TestEvaluationMetrics::test_recall_at_k PASSED                                                                                  [ 50%]
+test_recommender.py::TestLSHIndex::test_lsh_build PASSED                                                                                             [ 55%]
+test_recommender.py::TestLSHIndex::test_lsh_query PASSED                                                                                             [ 61%]
+test_recommender.py::TestLSHIndex::test_lsh_save_load PASSED                                                                                         [ 66%]
+test_recommender.py::TestPopularityRecommender::test_popularity_recommend PASSED                                                                     [ 72%]
+test_recommender.py::TestPopularityRecommender::test_popularity_exclude_items PASSED                                                                 [ 77%]
+test_recommender.py::TestDCG::test_dcg_basic PASSED                                                                                                  [ 83%]
+test_recommender.py::TestDCG::test_dcg_empty PASSED                                                                                                  [ 88%]
+test_recommender.py::TestIntegration::test_model_save_load PASSED                                                                                    [ 94%]
+test_recommender.py::TestIntegration::test_full_artifacts_save_load PASSED                                                                           [100%]
 ```
+Note: Tests that import `train_model` require `ray` to be installed (available in the Ray cluster Docker environment). Tests for evaluation metrics, LSH, and popularity recommender run without Ray.
 
 ## Troubleshooting
 
@@ -305,7 +309,7 @@ test_recommender.py::TestConfiguration::test_config_defaults PASSED             
 
 ## Future Improvements
 
-- [ ] Add real-time model serving with Ray Serve
+- [x] Add real-time model serving with Ray Serve
 - [ ] Implement negative sampling for implicit feedback
 - [ ] Add item/user features for hybrid model
 - [ ] A/B testing framework integration

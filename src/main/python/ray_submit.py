@@ -48,19 +48,19 @@ def submit_job(
         Job ID
     """
     # Runtime environment
+    # No working_dir — source code is mounted at /workspace via Docker volume.
+    # Avoids uploading the entire project directory on every job submission.
     runtime_env = {
-        "working_dir": ".",
         "env_vars": {
             "PYTHONPATH": "/workspace/src/main/resources:/workspace/src/main/python"
         }
     }
-    
-    # Entrypoint command
-    entrypoint = f"python {job_file} --run_stage {run_stage} --config_path {config_path}"
-    
+
+    # Entrypoint command — absolute path since files are on the mounted volume
+    entrypoint = f"python /workspace/src/main/python/{job_file} --run_stage {run_stage} --config_path {config_path}"
+
     logger.info("Submitting job...")
     logger.info(f"  Entrypoint: {entrypoint}")
-    logger.info(f"  Working dir: {runtime_env['working_dir']}")
     
     job_id = client.submit_job(
         entrypoint=entrypoint,

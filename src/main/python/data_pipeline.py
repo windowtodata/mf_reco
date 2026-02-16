@@ -4,7 +4,6 @@ Extracts and prepares data for Matrix Factorization training.
 Saves partitioned data as Parquet for efficient processing.
 """
 
-import os
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional
@@ -168,14 +167,12 @@ class DataPipeline:
             logger.info("Calculating average item quantities...")
             
             df_aggregated = df_filtered.groupBy(
-                self.user_col, 
-                self.order_col, 
+                self.user_col,
+                self.order_col,
                 self.item_col,
                 "date_partition"
             ).agg(
-                F.mean(self.rating_col).alias("avg_quantity"),
-                F.sum(self.rating_col).alias("total_quantity"),
-                F.count("*").alias("transaction_count")
+                F.mean(self.rating_col).alias("avg_quantity")
             )
             
             agg_count = df_aggregated.count()
@@ -199,27 +196,12 @@ class DataPipeline:
                 .partitionBy("date_partition") \
                 .parquet(output_base)
             
-            # Log partition details
+            # Log summary
             output_path = Path(output_base)
             partition_dirs = sorted(output_path.glob("date_partition=*"))
-            logger.info(f"Created {len(partition_dirs)} date partitions")
-            
-            total_size = 0
-            for partition_dir in partition_dirs[:5]:  # Show first 5
-                parquet_files = list(partition_dir.glob("*.parquet"))
-                partition_size = sum(f.stat().st_size for f in parquet_files)
-                total_size += partition_size
-                logger.info(
-                    f"  {partition_dir.name}: "
-                    f"{len(parquet_files)} files, "
-                    f"{partition_size / 1024 / 1024:.2f} MB"
-                )
-            
-            if len(partition_dirs) > 5:
-                logger.info(f"  ... and {len(partition_dirs) - 5} more partitions")
-            
+
             logger.info("="*80)
-            logger.info("✓ DATA PIPELINE COMPLETE")
+            logger.info("DATA PIPELINE COMPLETE")
             logger.info("="*80)
             logger.info(f"Output: {output_base}/ (Parquet format)")
             logger.info(f"Total records: {agg_count:,}")

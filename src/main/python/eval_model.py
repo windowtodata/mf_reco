@@ -418,21 +418,7 @@ class ModelEvaluator:
     
     def _load_test_data(self, test_dir: str) -> pd.DataFrame:
         """Load test data from partitioned Parquet."""
-        test_path = Path(test_dir)
-        
-        partition_dirs = list(test_path.glob("date_partition=*"))
-        
-        if not partition_dirs:
-            raise ValueError(f"No partitions found in {test_dir}")
-        
-        dfs = []
-        for partition_dir in partition_dirs:
-            parquet_files = list(partition_dir.glob("*.parquet"))
-            for pf in parquet_files:
-                df = pd.read_parquet(pf)
-                dfs.append(df)
-        
-        return pd.concat(dfs, ignore_index=True)
+        return pd.read_parquet(test_dir)
 
 
 def save_evaluation_metrics(
@@ -442,42 +428,26 @@ def save_evaluation_metrics(
     end_date: str
 ) -> str:
     """
-    Save evaluation metrics to files.
-    
+    Save evaluation metrics to JSON file.
+
     Args:
         metrics: Evaluation metrics dictionary
         rmse: Test RMSE from training
         metrics_dir: Base directory for metrics
         end_date: Training data end date
-        
+
     Returns:
         Path to saved metrics directory
     """
-    # Create dated eval folder
     eval_dir = Path(metrics_dir) / f"eval_{datetime.now().strftime('%Y_%m_%d')}"
     eval_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Save as CSV (summary)
-    csv_data = {
-        'eval_date': [end_date],
-        'rmse': [rmse],
-        'ndcg': [metrics.get('ndcg@10', 0.0)],
-        'precision': [metrics.get('precision@10', 0.0)],
-        'recall': [metrics.get('recall@10', 0.0)],
-        'users_evaluated': [metrics.get('num_users_evaluated', 0)]
-    }
-    
-    df = pd.DataFrame(csv_data)
-    csv_path = eval_dir / "metrics.csv"
-    df.to_csv(csv_path, index=False)
-    logger.info(f"Saved metrics CSV: {csv_path}")
-    
-    # Save full metrics as JSON
-    json_path = eval_dir / "metrics_full.json"
+
+    metrics_with_context = {**metrics, 'eval_date': end_date, 'training_rmse': rmse}
+    json_path = eval_dir / "metrics.json"
     with open(json_path, 'w') as f:
-        json.dump(metrics, f, indent=2)
-    logger.info(f"Saved metrics JSON: {json_path}")
-    
+        json.dump(metrics_with_context, f, indent=2)
+    logger.info(f"Saved metrics: {json_path}")
+
     return str(eval_dir)
 
 

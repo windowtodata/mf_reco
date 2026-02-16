@@ -133,6 +133,15 @@ class LSHIndex:
     
     @classmethod
     def load(cls, path: str) -> 'LSHIndex':
+        """
+        Load an LSHIndex from a saved pickle file.
+
+        Args:
+            path: Path to the saved pickle file.
+
+        Returns:
+            LSHIndex: Loaded LSHIndex.
+        """
         with open(path, 'rb') as f:
             data = pickle.load(f)
         
@@ -312,19 +321,18 @@ class ComplementaryProductRecommender:
     def get_basket_embedding(self, basket: List[str]) -> np.ndarray:
         """
         Compute aggregate embedding for a basket of items.
-        Uses mean pooling of individual item embeddings.
+        Uses mean pooling of individual item embeddings (single batched lookup).
         """
-        embeddings = []
-        
-        for item_id in basket:
-            emb = self.get_item_embedding(item_id)
-            if emb is not None:
-                embeddings.append(emb)
-        
-        if not embeddings:
+        indices = [self.item2idx[item_id] for item_id in basket if item_id in self.item2idx]
+
+        if not indices:
             return np.zeros(self.config['n_factors'])
-        
-        return np.mean(embeddings, axis=0)
+
+        with torch.no_grad():
+            idx_tensor = torch.tensor(indices, device=self.device)
+            embeddings = self.model.item_factors(idx_tensor)
+
+        return embeddings.mean(dim=0).cpu().numpy()
     
     def recommend(
         self,
