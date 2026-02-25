@@ -74,9 +74,7 @@ class LSHIndex:
             emb = embeddings[item_idx]
             for table_idx in range(self.n_hash_tables):
                 hash_key = self._hash(emb, table_idx)
-                if hash_key not in self.hash_tables[table_idx]:
-                    self.hash_tables[table_idx][hash_key] = []
-                self.hash_tables[table_idx][hash_key].append(item_idx)
+                self.hash_tables[table_idx].setdefault(hash_key, []).append(item_idx)
         
         logger.info(f"LSH index built for {n_items} items")
     

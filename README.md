@@ -123,6 +123,21 @@ python recommend.py --basket item1,item2,item3
 #   - complementary_item_b (score: 0.7891)
 #   - complementary_item_c (score: 0.7234)
 
+```
+python recommend.py --basket "678629d50c3e843442e674ae","68952cf7fd2d7f6215293db1"
+2026-02-25 13:35:08,703 - INFO - Loading model from: /workspace/models/latest
+2026-02-25 13:35:10,821 - INFO -   ✓ Loaded model weights
+2026-02-25 13:35:10,824 - INFO -   Items: 62,138
+2026-02-25 13:35:10,824 - INFO -   Factors: 16
+
+Recommendations for basket: ['678629d50c3e843442e674ae', '68952cf7fd2d7f6215293db1']
+------------------------------------------------------------
+  - 660307eeab368c0001d5877d (score: 0.7885)
+  - 67d72a8d843f02166107268e (score: 0.7834)
+  - 67d9a1960781e88771f24b88 (score: 0.7824)
+  - 67c99dc19eed354136a91411 (score: 0.7790)
+  - 66a5050deb67c10001600731 (score: 0.7748)
+```
 # Similar items
 python recommend.py --similar item1 --top_k 5
 
