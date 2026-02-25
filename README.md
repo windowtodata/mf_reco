@@ -244,6 +244,7 @@ Please note, there are separate Ray clusters for training and serving.
 External caching is not implemented
 But the LSH tables are in-memory for fast lookups
 ```
+![alt text](image-2.png)
 
 ## Monitoring
 
